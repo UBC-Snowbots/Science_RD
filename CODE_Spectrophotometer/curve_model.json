@@ -1,0 +1,12 @@
+{
+  "assay_name": "Life Detection Assay",
+  "unit": "ppm",
+  "wavelength": 525.0,
+  "blank_csv": "blank.csv",
+  "model_name": "Linear",
+  "popt": [
+    0.0028395653517957475,
+    -0.00010903908505885609
+  ],
+  "r2": 0.9992420946462135
+}
