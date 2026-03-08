@@ -33,13 +33,7 @@ Has two modes: **build** and **predict**.
 Run this once when you have your known-concentration CSV files ready.
 
 ```bash
-python curve_gen.py build \
-    --blank blank.csv \
-    --standards 0,blank.csv 1,sample_1ppm.csv 2,sample_2ppm.csv 5,sample_5ppm.csv 10,sample_10ppm.csv 20,sample_20ppm.csv \
-    --wavelength 525 \
-    --unit ppm \
-    --name "Life Detection Assay" \
-    --model-out curve_model.json
+python curve_gen.py build --blank blank.csv --standards 0,blank.csv 1,sample_1ppm.csv 2,sample_2ppm.csv 5,sample_5ppm.csv 10,sample_10ppm.csv 20,sample_20ppm.csv --wavelength 525 --unit ppm --name "Life Detection Assay" --model-out curve_model.json
 ```
 
 **What each argument does:**
