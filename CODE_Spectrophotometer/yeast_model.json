@@ -1,0 +1,12 @@
+{
+  "assay_name": "Yeast Life Detection Assay",
+  "unit": "uM",
+  "wavelength": 570.0,
+  "blank_csv": "blank.csv",
+  "model_name": "Linear",
+  "popt": [
+    1.636311793705588,
+    -0.01092192545589392
+  ],
+  "r2": 0.9808331510576208
+}
