@@ -10,16 +10,27 @@ from PySpectrometer2 CSV data.
 | File | Purpose |
 |------|---------|
 | `curve_gen.py` | Main script — builds standard curves and predicts unknowns |
+| `capture_and_predict.py` | Headless Pi script — captures a spectrum, saves CSV, and predicts concentration automatically |
 | `fake_data_gen.py` | Generates synthetic CSV files for testing |
 
 ---
 
 ## Requirements
 
-Install dependencies once before running anything:
+Install Python dependencies once before running anything:
 
 ```bash
 pip install matplotlib numpy pandas scipy
+```
+
+For `capture_and_predict.py` on the Pi, also install the camera library:
+
+```bash
+# Pi camera (recommended)
+sudo apt install python3-picamera2
+
+# USB camera instead
+pip install opencv-python
 ```
 
 ---
@@ -110,6 +121,71 @@ scp pi@<your-pi-ip>:/path/to/curve_model.json .
 
 ---
 
+## capture_and_predict.py
+
+Fully headless script for the Pi that captures a spectrum directly from the camera,
+saves it as a CSV, runs it through the prediction pipeline, and appends the result
+to a log file — no GUI, no keyboard input required.
+
+**Prerequisites:**
+- `curve_gen.py` must be in the same folder
+- A trained model JSON from `curve_gen.py build`
+- `caldata.txt` in the same folder (written automatically by PySpectrometer2 during calibration)
+
+### Basic usage
+
+```bash
+# Pi camera
+python capture_and_predict.py --model yeast_model.json
+
+# USB camera
+python capture_and_predict.py --model yeast_model.json --usb --device 0
+
+# Fresh blank taken on the day
+python capture_and_predict.py --model yeast_model.json --blank todays_blank.csv
+
+# Average more frames for less noise
+python capture_and_predict.py --model yeast_model.json --frames 30
+```
+
+**What each argument does:**
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--model` | Yes | Model JSON from `curve_gen.py build` |
+| `--output` | No | Filename for the captured spectrum CSV. Default: auto-generated with timestamp |
+| `--blank` | No | Override the blank stored in the model with a fresh one |
+| `--results` | No | CSV log file to append results to. Default: `predictions_log.csv` |
+| `--caldata` | No | PySpectrometer2 calibration file. Default: `caldata.txt` |
+| `--frames` | No | Number of frames to average for noise reduction. Default: `10` |
+| `--usb` | No | Use a USB camera instead of the Pi camera |
+| `--device` | No | USB camera device number. Default: `0` |
+
+**Outputs produced:**
+
+- `capture_YYYYMMDD_HHMMSS.csv` — the captured spectrum (or whatever you set with `--output`)
+- `predictions_log.csv` — results log with one row per measurement, includes timestamp, absorbance, and predicted concentration
+
+### What it does internally
+
+1. Reads `caldata.txt` to get the pixel-to-wavelength polynomial from your PySpectrometer2 calibration
+2. Opens the camera and captures N frames, averaging them to reduce noise
+3. Extracts a 1D intensity spectrum by averaging rows around the centre of the frame (matching PySpectrometer2's approach)
+4. Saves the spectrum as a CSV identical in format to what PySpectrometer2 would save
+5. Runs the prediction using the saved model and appends the result to the log
+
+### Typical headless workflow
+
+```
+1. Build standard curve once   →  python curve_gen.py build --standards ...
+2. Place unknown sample in instrument
+3. Run capture and predict     →  python capture_and_predict.py --model yeast_model.json
+4. Check predictions_log.csv for result
+5. Repeat steps 2–4 for each new sample
+```
+
+---
+
 ## fake_data_gen.py
 
 Generates synthetic CSV files to test the pipeline without real instrument data.
@@ -127,13 +203,26 @@ These can be used directly with `curve_gen.py build` to verify the pipeline is w
 
 ## Typical workflow
 
+### Building a standard curve (do once per assay)
 ```
-1. Generate test data      →  real samples at various concentrations or python fake_data_gen.py
-2. Build curve from tests  →  python curve_gen.py build --standards ...
-3. Check output plots      →  open standard_curve.png and spectra_overlay.png
-4. Confirm red line sits at trough bottom in spectra_overlay.png
-5. Replace test CSVs with real instrument data and repeat steps 2–4
-6. Predict unknowns        →  python curve_gen.py predict --sample unknown.csv
+1. Prepare known-concentration standards
+2. Scan each one in PySpectrometer2 and save CSVs
+3. Build curve  →  python curve_gen.py build --standards ...
+4. Check plots  →  open standard_curve.png and spectra_overlay.png
+5. Confirm red line sits at trough bottom in spectra_overlay.png
+```
+
+### Predicting unknowns — manual (CSV already saved)
+```
+1. Scan unknown in PySpectrometer2 and save CSV
+2. Predict  →  python curve_gen.py predict --sample unknown.csv --model yeast_model.json
+```
+
+### Predicting unknowns — fully headless (no GUI needed)
+```
+1. Place unknown sample in instrument
+2. Run  →  python capture_and_predict.py --model yeast_model.json
+3. Result is printed to terminal and saved to predictions_log.csv
 ```
 
 ---
@@ -160,4 +249,5 @@ until you are confident in the new curve.
 ```bash
 python curve_gen.py build --help
 python curve_gen.py predict --help
+python capture_and_predict.py --help
 ``` 
