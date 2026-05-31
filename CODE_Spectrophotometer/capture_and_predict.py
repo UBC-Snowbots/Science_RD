@@ -11,7 +11,7 @@ Headless script for the Raspberry Pi that:
 Requires:
   - curve_gen.py in the same directory
   - A trained model JSON from: python curve_gen.py build ...
-  - caldata.txt in the same directory (written by PySpectrometer2 during calibration)
+  - caldata.txt in the same directory (written by PySpectrometer3 during calibration)
   - picamera2 (Pi camera) OR opencv (USB camera)
 
 Usage
