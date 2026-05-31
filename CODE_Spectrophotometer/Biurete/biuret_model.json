@@ -1,0 +1,13 @@
+{
+  "assay_name": "Biuret Protein Assay",
+  "unit": "mg/mL",
+  "wavelength": 540.0,
+  "blank_csv": "blank.csv",
+  "model_name": "Quadratic",
+  "popt": [
+    -0.009352242961012164,
+    0.048647002117621296,
+    0.1613188179445075
+  ],
+  "r2": 0.6743217884837285
+}
