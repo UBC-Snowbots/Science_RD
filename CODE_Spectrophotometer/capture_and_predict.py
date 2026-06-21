@@ -11,7 +11,7 @@ Headless script for the Raspberry Pi that:
 Requires:
   - curve_gen.py in the same directory
   - A trained model JSON from: python curve_gen.py build ...
-  - caldata.txt in the same directory (written by PySpectrometer3 during calibration)
+  - caldata.txt in the same directory (written by PySpectrometer2 during calibration)
   - picamera2 (Pi camera) OR opencv (USB camera)
 
 Usage
@@ -57,59 +57,64 @@ CALDATA_FILE = "caldata.txt"
 # CALIBRATION
 # ─────────────────────────────────────────────────────────────────────────────
 
-def load_calibration(caldata_path: str) -> np.ndarray:
+def load_calibration(caldata_path: str) -> np.poly1d:
     """
     Read caldata.txt written by PySpectrometer2 and return a polynomial
     that maps pixel index → wavelength (nm).
 
-    caldata.txt format (one value per line):
-        pixel_1
-        wavelength_1
-        pixel_2
-        wavelength_2
-        ...
+    PySpectrometer2 writes caldata.txt as exactly TWO lines:
+        Line 0: comma-separated pixel numbers  e.g.  581, 230, 631, 487
+        Line 1: comma-separated wavelengths    e.g.  375, 513, 546.5, 611.6
 
-    PySpectrometer2 fits a 3rd order polynomial when ≥4 points are provided,
-    or 2nd order for 3 points. We replicate that here.
+    This exactly replicates the readcal() function in specFunctions.py:
+      - 3 points  → 2nd order polynomial
+      - 4+ points → 3rd order polynomial
     """
     if not os.path.exists(caldata_path):
         raise FileNotFoundError(
             f"Calibration file not found: {caldata_path}\n"
-            f"Run PySpectrometer2 and press 'c' to calibrate first."
+            f"Run PySpectrometer2 and perform calibration first."
         )
 
-    pixels      = []
-    wavelengths = []
+    with open(caldata_path, 'r') as f:
+        lines = f.readlines()
 
-    with open(caldata_path) as f:
-        lines = [l.strip() for l in f if l.strip()]
+    if len(lines) < 2:
+        raise ValueError(
+            f"caldata.txt must have 2 lines (pixels then wavelengths). "
+            f"Only {len(lines)} line(s) found. Re-run calibration in PySpectrometer2."
+        )
 
-    # Expect alternating pixel / wavelength lines
-    for i in range(0, len(lines) - 1, 2):
-        try:
-            pixels.append(float(lines[i]))
-            wavelengths.append(float(lines[i + 1]))
-        except ValueError:
-            continue
+    # Line 0: pixel numbers (integers)
+    pixels      = [int(x.strip())   for x in lines[0].strip().split(',')]
+    # Line 1: wavelengths (floats)
+    wavelengths = [float(x.strip()) for x in lines[1].strip().split(',')]
 
+    if len(pixels) != len(wavelengths):
+        raise ValueError(
+            f"caldata.txt has {len(pixels)} pixel values but "
+            f"{len(wavelengths)} wavelength values. Re-run calibration."
+        )
     if len(pixels) < 3:
         raise ValueError(
-            f"caldata.txt has only {len(pixels)} calibration points. "
+            f"caldata.txt has only {len(pixels)} calibration point(s). "
             f"Need at least 3. Re-run calibration in PySpectrometer2."
         )
 
-    degree = 3 if len(pixels) >= 4 else 2
-    coeffs = np.polyfit(pixels, wavelengths, degree)
-    poly   = np.poly1d(coeffs)
+    print(f"  Calibration points loaded: {len(pixels)}")
+    for p, w in zip(pixels, wavelengths):
+        print(f"    pixel {p} → {w} nm")
 
-    r2_vals  = np.array(wavelengths)
-    r2_pred  = poly(np.array(pixels))
-    ss_res   = np.sum((r2_vals - r2_pred) ** 2)
-    ss_tot   = np.sum((r2_vals - np.mean(r2_vals)) ** 2)
-    r2       = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
+    # Fit polynomial — identical degree logic to PySpectrometer2
+    degree = 3 if len(pixels) > 3 else 2
+    poly   = np.poly1d(np.polyfit(pixels, wavelengths, degree))
 
-    print(f"  Calibration loaded: {len(pixels)} points, "
-          f"degree-{degree} polynomial, R² = {r2:.6f}")
+    # Report R² so miscalibration is obvious
+    predicted = poly(np.array(pixels))
+    corr      = np.corrcoef(wavelengths, predicted)[0, 1]
+    r2        = corr ** 2
+    print(f"  Degree-{degree} polynomial fit, R² = {r2:.6f}")
+
     return poly
 
 
