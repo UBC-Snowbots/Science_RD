@@ -1,0 +1,12 @@
+{
+  "assay_name": "Protein  Detection Assay",
+  "unit": "ug/ml",
+  "wavelength": 540.0,
+  "blank_csv": "blank.csv",
+  "model_name": "Linear",
+  "popt": [
+    0.00021215974470178978,
+    0.006939549391698828
+  ],
+  "r2": 0.8147803616108975
+}
